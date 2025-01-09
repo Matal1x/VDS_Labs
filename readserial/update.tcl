@@ -1,2 +1,2 @@
 re_setup
-check -all [get_checks]
+check -force -all [get_checks]
