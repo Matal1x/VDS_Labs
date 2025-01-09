@@ -1,0 +1,58 @@
+// @lang=sva @ts=2
+
+module jkff_property_suite(clk, j_i, k_i, q_o);
+
+input logic clk;
+input logic j_i,k_i;
+input logic q_o;
+
+// sequence definitions
+
+// First case
+sequence j1_q1;
+	j_i && !k_i ;
+endsequence
+
+// Second case
+sequence k1_q0;
+	!j_i && k_i ;
+endsequence
+
+// Third case
+sequence j1_k1_Nq;
+	j_i && k_i ;
+endsequence
+
+// Fourth case
+sequence j0_k0_q;
+	!j_i && !k_i ;
+endsequence
+
+// property definitions
+property First_case;
+	@(posedge clk) j1_q1 |=> q_o;
+endproperty
+
+property Second_case;
+	@(posedge clk) k1_q0 |=> !q_o;
+endproperty
+
+property Third_case;
+	@(posedge clk) j1_k1_Nq |=> (q_o==!$past(q_o));
+endproperty
+
+property Fourth_case;
+	@(posedge clk) j0_k0_q |=> (q_o==$past(q_o));
+endproperty
+// make assertion on properties to be checked
+
+a_FIRSTCASE: assert property (@(posedge clk) First_case);
+a_SECONDCASE: assert property (@(posedge clk) Second_case);
+a_THIRDCASE: assert property (@(posedge clk) Third_case);
+a_FOURTHCASE: assert property (@(posedge clk) Fourth_case);
+
+endmodule
+
+// bind the verification IP to the design
+
+bind jkff jkff_property_suite inst_jkff_property_suite(.*);

@@ -1,0 +1,76 @@
+// @lang=sva @ts=2
+
+module busarbiter_properties(clk, reset, bus_req, bus_grant, bus_ack); 
+
+input logic clk;
+input logic reset;
+
+input logic [2:0] bus_req;
+input logic [2:0] bus_grant;
+input logic bus_ack;
+
+parameter READY = 1'b0;
+parameter BUSY  = 1'b1;
+
+parameter NO_REQUEST = 3'b000; 
+parameter NO_GRANT = 3'b000; 
+
+// your definitions...
+
+//	TASK 1
+property p_reset;
+	 reset |=> !bus_req && !bus_grant && !bus_ack;
+endproperty
+a_reset: assert property(@(posedge clk) p_reset);
+
+// TASK 2
+property p_at_most_one_grant;
+	$onehot(bus_grant) || bus_grant==0;
+endproperty
+a_at_most_one_grant: assert property (p_at_most_one_grant);
+
+// TASK 3
+property  p_grant_stable;
+//$rose(bus_grant) |=> $stable(bus_grant)  until $fell(bus_ack);
+//$fell(bus_ack)  |=> $stable(bus_grant);
+//($rose(bus_grant) ##[0:$] $fell(bus_ack)) implies $stable(bus_grant);
+bus_grant implies (##1 ($stable(bus_grant) [*] ##1 $fell(bus_ack)) );
+//(bus_grant && $stable(bus_grant)) implies ( not($fell(bus_ack)) ##1 $fell(bus_ack) && $stable(bus_grant));
+// ($rose(bus_grant) implies $stable(bus_grant)) implies ( not($fell(bus_ack)) ##1 $fell(bus_ack) && $stable(bus_grant)); // vacuous?
+
+endproperty
+a_grant_stable: assert property (@(posedge clk) disable iff (reset) p_grant_stable);
+
+// TASK 4
+property p_arbitration_master0;
+	( $past(bus_req)==7 && $past(bus_grant)==0) | (bus_grant[0] && (bus_req[1] | bus_req[2])) |-> bus_grant[0];
+endproperty
+a_arbitration_master0: assert property (@(posedge clk) disable iff (reset) p_arbitration_master0);
+
+property p_arbitration_master1;
+	( $past(bus_req)==3'b110 && $past(bus_grant)==0) | (bus_grant[1] && (bus_req[0] | bus_req[2]))|-> bus_grant[1];
+endproperty
+a_arbitration_master1: assert property (@(posedge clk) disable iff (reset) p_arbitration_master1);
+
+property p_arbitration_master2;
+	($past(bus_req)==3'b100 && $past(bus_grant)==0) | (bus_grant[2] && (bus_req[0] | bus_req[1]))|-> bus_grant[2];
+endproperty
+a_arbitration_master2: assert property (@(posedge clk) disable iff (reset) p_arbitration_master2);
+
+// TASK 5
+property  p_grant_master1;
+	 $rose(bus_grant[1]) implies (!$past(bus_req[0]) && $past(bus_req[1]));
+endproperty
+a_grant_master1: assert property (@(posedge clk) disable iff (reset) p_grant_master1);
+
+property  p_grant_master2;
+	 $rose(bus_grant[2]) implies !$past(bus_req[0]) && !$past(bus_req[1] && $past(bus_req[2]));
+endproperty
+a_grant_master2: assert property (@(posedge clk) disable iff (reset) p_grant_master2);
+
+endmodule
+
+
+
+bind busarbiter busarbiter_properties(.*); 
+

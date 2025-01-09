@@ -1,0 +1,357 @@
+// @lang=tda @ts=2
+
+module proc_property_suite(reset,clk, IR, REG_FILE,CONTROL_STATE,
+dataIn, writeEnable, dataOut,dataAddr,instrAddr,instrIn);
+
+input logic reset;
+input logic clk;
+input logic [15:0] IR;
+input logic [7:0][7:0] REG_FILE;
+input logic [2:0] CONTROL_STATE;
+input logic [7:0] dataIn;
+input logic writeEnable;
+input logic [7:0] dataOut;
+input logic [7:0] dataAddr;
+input logic [15:0] instrAddr;
+input logic [15:0] instrIn;
+
+parameter c_IF  = 3'b001;
+parameter c_ID  = 3'b010;
+parameter c_EX  = 3'b011;
+parameter c_MEM = 3'b100;
+parameter c_WB  = 3'b101;
+
+parameter c_ALU_REG = 4'b0001;
+
+parameter c_ADD_IMM = 4'b0010;
+parameter c_OR_IMM  = 4'b0011;
+
+parameter c_LOAD    = 4'b0100;
+parameter c_STORE   = 4'b0101;
+
+parameter c_JUMP    = 4'b0110;
+parameter c_BRANCH  = 4'b0111;
+
+parameter c_ADD     = 3'b001;
+parameter c_OR      = 3'b010;
+
+// sequence definition for SVA property
+
+`define true 1
+
+`include "tidal.sv"
+
+`begin_tda(ops)
+
+// sequence definition for TiDAL property
+
+// your operational properties
+
+// assert your properties
+
+
+// *********************** TASK 1 ***********************
+property check_OR_IMM;
+	logic [2:0] rs1;
+  logic [2:0] rd;
+	logic [7:0] extSign_imm;
+  logic [7:0] content_rs1;
+ 
+  t ##0 set_freeze(rs1, instrIn[11:9]) and
+  t ##0 set_freeze(rd, instrIn[ 8:6]) and
+	
+	/* Correctly extending the 6bits immediate to 8bits */
+	t ##0 set_freeze(extSign_imm, { {2{instrIn[ 5]}}, instrIn[ 5:0]}) and
+
+	/* Excluding the case where rd=0 as it would be a NOP
+				and 
+		 Considering the source register's content to be 0
+			in case rs1=0 as specificed in the documentation
+	*/
+
+  t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+ 
+	/* Assuming that the processing started
+			and
+		 that the instruction is of type OR_IMM */
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_OR_IMM
+ 
+  implies
+	/* Checking that the correct  result of the ALU operation 
+			is in the destination register*/
+  t ##1 CONTROL_STATE == c_ID and
+	t ##2 CONTROL_STATE == c_EX and
+	t ##3 CONTROL_STATE == c_MEM and
+	t ##4 CONTROL_STATE == c_WB and
+	t ##5 CONTROL_STATE == c_IF and
+	t ##5	rd!=0 ? (REG_FILE[rd] == (content_rs1 | extSign_imm)) : 1;
+endproperty
+a_check_OR_IMM: assert property(@(posedge clk) disable iff (reset==1) check_OR_IMM);
+
+
+property check_OR_REG;
+	logic [2:0] rs1, rs2;
+  logic [2:0] rd;
+  logic [7:0] content_rs1, content_rs2;
+ 
+  t ##0 set_freeze(rs1, instrIn[11:9]) and
+  t ##0 set_freeze(rs2, instrIn[ 8:6]) and
+	t ##0 set_freeze(rd, instrIn[5:3]) and
+	
+
+	/* Excluding the case where rd=0 as it would be a NOP
+				and 
+		 Considering the source register's content to be 0
+			in case rs1=0 as specificed in the documentation,
+		 Same thing with rs2.
+	*/
+  t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+  t ##0 set_freeze(content_rs2, ((rs2 != 0)? REG_FILE[rs2] : 8'b00000000)) and
+	/* Assuming that the processing started
+			and
+		 that the instruction is of type OR_REG */
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_ALU_REG and
+	t ##0 instrIn[2:0] == c_OR 
+ 
+  implies
+	/* Checking that the correct  result of the ALU operation 
+			is in the destination register*/
+	t ##1 CONTROL_STATE == c_ID and
+	t ##2 CONTROL_STATE == c_EX and
+	t ##3 CONTROL_STATE == c_MEM and
+	t ##4 CONTROL_STATE == c_WB and
+		t ##5 CONTROL_STATE == c_IF and
+	t ##5	rd!=0 ? (REG_FILE[rd] == (content_rs1 | content_rs2)) : 1;
+endproperty
+a_check_OR_REG: assert property(@(posedge clk) disable iff (reset==1) check_OR_REG);
+
+
+property check_ADD_IMM;
+	logic [2:0] rs1;
+  logic [2:0] rd;
+	logic [7:0] extSign_imm;
+  logic [7:0] content_rs1;
+ 
+  t ##0 set_freeze(rs1, instrIn[11:9]) and
+  t ##0 set_freeze(rd, instrIn[ 8:6]) and
+	
+	/* Correctly extending the 6bits immediate to 8bits */
+	t ##0 set_freeze(extSign_imm, { {2{instrIn[ 5]}}, instrIn[ 5:0]}) and
+
+	/* Excluding the case where rd=0 as it would be a NOP
+				and 
+		 Considering the source register's content to be 0
+			in case rs1=0 as specificed in the documentation
+	*/
+  t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+ 
+	/* Assuming that the processing started
+			and
+		 that the instruction is of type OR_IMM */
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_ADD_IMM
+ 
+  implies
+	/* Checking that the correct  result of the ALU operation 
+			is in the destination register*/
+	t ##1 CONTROL_STATE == c_ID and
+	t ##2 CONTROL_STATE == c_EX and
+	t ##3 CONTROL_STATE == c_MEM and
+	t ##4 CONTROL_STATE == c_WB and
+		t ##5 CONTROL_STATE == c_IF and
+	t ##5	rd!=0 ? (REG_FILE[rd] == (content_rs1 + extSign_imm)) : 1;
+endproperty
+a_check_ADD_IMM: assert property(@(posedge clk) disable iff (reset==1) check_ADD_IMM);
+
+property check_ADD_REG;
+	logic [2:0] rs1, rs2;
+  logic [2:0] rd;
+  logic [7:0] content_rs1, content_rs2;
+ 
+  t ##0 set_freeze(rs1, instrIn[11:9]) and
+  t ##0 set_freeze(rs2, instrIn[ 8:6]) and
+	t ##0 set_freeze(rd, instrIn[5:3]) and
+	
+
+	/* Excluding the case where rd=0 as it would be a NOP
+				and 
+		 Considering the source register's content to be 0
+			in case rs1=0 as specificed in the documentation,
+		 Same thing with rs2.
+	*/
+  t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+  t ##0 set_freeze(content_rs2, ((rs2 != 0)? REG_FILE[rs2] : 8'b00000000)) and
+	/* Assuming that the processing started
+			and
+		 that the instruction is of type ADD_REG */
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_ALU_REG and
+	t ##0 instrIn[2:0] == c_ADD 
+ 
+  implies
+	/* Checking that the correct  result of the ALU operation 
+			is in the destination register*/
+	t ##1 CONTROL_STATE == c_ID and
+	t ##2 CONTROL_STATE == c_EX and
+	t ##3 CONTROL_STATE == c_MEM and
+	t ##4 CONTROL_STATE == c_WB and
+		t ##5 CONTROL_STATE == c_IF and
+	t ##5	rd!=0 ? (REG_FILE[rd] == (content_rs1 + content_rs2)) : 1;
+endproperty
+a_check_ADD_REG: assert property(@(posedge clk) disable iff (reset==1) check_ADD_REG);
+
+
+// *********************** TASK 2 ***********************
+property check_LOAD;
+	logic [2:0] rs1;
+  logic [2:0] rd;
+	logic [7:0] extSign_imm;
+  logic [7:0] content_rs1;
+	logic [7:0] temp;
+
+  t ##0 set_freeze(rs1, instrIn[11:9]) and
+  t ##0 set_freeze(rd, instrIn[ 8:6]) and
+
+	t ##0 set_freeze(extSign_imm, { {2{instrIn[ 5]}}, instrIn[ 5:0]}) and
+  t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+	
+	
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_LOAD and
+	
+	t ## 3 set_freeze(temp, dataIn) 
+	
+ 
+  implies
+	/* Checking that the correct  result 
+			is in the destination register*/
+	t ## 0 !writeEnable and
+
+	t ##1 CONTROL_STATE == c_ID and
+	t ## 1 !writeEnable and
+
+	t ##2 CONTROL_STATE == c_EX and
+	t ## 2 !writeEnable and
+
+	
+	t ## 3 dataAddr == (content_rs1+extSign_imm) and
+	t ## 3 !writeEnable and
+
+	t ##4 CONTROL_STATE == c_WB and
+	t ##4 !writeEnable and
+	
+		t ##5 CONTROL_STATE == c_IF and
+	t ##5	rd!=0 ? (REG_FILE[rd] == temp) : 1;
+endproperty
+a_check_LOAD: assert property(@(posedge clk) disable iff (reset==1) check_LOAD);
+
+property check_STORE;
+	logic [2:0] rs1, rs2;
+	logic [7:0] extSign_imm;
+  logic [7:0] content_rs1, content_rs2;
+
+  t ##0 set_freeze(rs1, instrIn[11:9]) and
+  t ##0 set_freeze(rs2, instrIn[ 8:6]) and
+
+	t ##0 set_freeze(extSign_imm, { {2{instrIn[ 5]}}, instrIn[ 5:0]}) and
+  t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+	t ##0 set_freeze(content_rs2, ((rs2 != 0)? REG_FILE[rs2] : 8'b00000000)) and
+	
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_STORE 
+	
+ 
+  implies
+	t ## 0 !writeEnable and
+
+	t ##1 CONTROL_STATE == c_ID and
+	t ## 1 !writeEnable and
+
+	t ##2 CONTROL_STATE == c_EX and
+	t ## 2 !writeEnable and
+
+
+	t ##3 CONTROL_STATE == c_MEM and
+	t ## 3 dataOut == content_rs2 and
+	t ## 3 writeEnable and 
+	t ## 3 dataAddr == (content_rs1+extSign_imm) and
+	
+	t ##4 !writeEnable and
+	t ##4 CONTROL_STATE == c_WB and
+		t ##5 CONTROL_STATE == c_IF ;
+endproperty
+a_check_STORE: assert property(@(posedge clk) disable iff (reset==1) check_STORE);
+
+// *********************** TASK 3 ***********************
+// Jumps and branches are executed in the ID phase
+property check_JUMP;
+	logic [15:0] offset;
+	logic [15:0] CurrPC;
+
+	/* Extending the offset */
+  t ##0 set_freeze(offset, { {4{instrIn[11]}}, instrIn[ 11:0]}) and
+	t ##0 set_freeze(CurrPC, instrAddr) and
+	
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_JUMP 
+	
+ 
+  implies
+	t ##1 CONTROL_STATE == c_ID and
+	t ##2 instrAddr== (16'd2+offset+CurrPC) and
+		t ##2 CONTROL_STATE == c_IF ;
+endproperty
+a_check_JUMP: assert property(@(posedge clk) disable iff (reset==1) check_JUMP);
+
+
+property check_BRANCH;
+	logic [15:0] offset;
+	logic [2:0] rs1;
+	logic [7:0] content_rs1;
+	logic [15:0] CurrPC;
+
+	/* Extending the offset */
+  t ##0 set_freeze(offset, { {7{instrIn[8]}}, instrIn[8:0]}) and
+	t ##0 set_freeze(rs1, instrIn[11:9]) and
+	t ##0 set_freeze(content_rs1, ((rs1 != 0)? REG_FILE[rs1] : 8'b00000000)) and
+	t ##0 set_freeze(CurrPC, instrAddr) and
+
+  t ##0 CONTROL_STATE == c_IF and
+  t ##0 instrIn[15:12] == c_BRANCH
+	
+ 
+  implies
+	t ##1 CONTROL_STATE == c_ID and
+	t ##2 (content_rs1==0)? instrAddr == (16'd2+offset+CurrPC): instrAddr == (16'd2+CurrPC) and
+	t ##2 CONTROL_STATE == c_IF ;
+endproperty
+a_check_BRANCH: assert property(@(posedge clk) disable iff (reset==1) check_BRANCH);
+
+/* 1-It takes 2 clock cycles to finish.
+	 2-Because if you don't specify the length of '2', it will automatically be set to 32.
+		The compiler will truncate the least significant 16bits and assign to the register. This is 
+		be a problem because a 16bits register will revert back to 0 and start from there if the result
+		is bigger than 16bits, while the 32bits won't and thus we get incorrect values
+*/
+`end_tda
+
+endmodule
+
+// your bind statement
+bind proc proc_property_suite (
+			.reset(reset),
+			.clk(clk),
+			.IR(IR),
+			.REG_FILE(REG_FILE),
+			.CONTROL_STATE(CONTROL_STATE),
+			.dataIn(dataIn),
+			.writeEnable(writeEnable),
+			.dataOut(dataOut),
+			.dataAddr(dataAddr),
+			.instrAddr(instrAddr),
+			.instrIn(instrIn)
+
+
+);

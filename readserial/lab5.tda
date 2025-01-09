@@ -1,0 +1,44 @@
+`define true 1
+`include "tidal.sv"
+
+module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, cnt_en);
+    input logic clk;
+    input logic reset_n;
+    input logic rxd;
+    input logic [7:0] data;
+    input logic valid;
+    input logic state_s;
+    input logic [7:0] data_i;
+    input shortint unsigned cnt_s;
+    input logic cnt_en;
+
+
+    parameter IDLE = 1'b0;
+    parameter READ_DATA = 1'b1;
+
+
+    
+
+
+    property reset;
+        /* The reset is active low and asynchronus */
+        !reset_n implies (state_s == IDLE && cnt_s==0);
+    endproperty
+    assert_reset: assert property(reset);
+
+    `begin_tda(ops)
+    `end_tda
+
+endmodule
+
+bind readserial readserial_suite(
+    .clk(clk),
+    .reset_n(reset_n),
+    .rxd(rxd),
+    .data(data),
+    .valid(valid),
+    .state_s(state_s),
+    .data_i(data_i),
+    .cnt_s(cnt_s),
+    .cnt_en(cnt_en)
+    );

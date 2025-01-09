@@ -1,0 +1,50 @@
+// -------------------------------------------------
+// Copyright(c) LUBIS EDA GmbH, All rights reserved
+// Contact: contact@lubis-eda.com
+// -------------------------------------------------
+
+`default_nettype none
+
+module fv_logic_unit_comb #(
+    parameter WIDTH = 16
+)(
+    // Inputs
+    input [(WIDTH-1):0] req_vec,
+    // Outputs
+    input logic out,
+    // Valid signals
+    input logic valid,
+    // Ready signals
+    input logic done
+);
+
+// TASK1
+/* Notes for my dear friend:
+	verify_computation: it should check that 'done' signal is indeed being asserted,
+	and that when it does then the correct output should be present in the same
+	clock cycle
+*/
+property verify_computation;
+	valid implies (out == (|req_vec[WIDTH-2:0] && req_vec[WIDTH-1]) && done);
+endproperty
+a_verify_computation: assert property (verify_computation);
+
+/* 
+	If valid is not set then done is never set as well 
+*/
+property done_low;
+	!valid implies !done;
+endproperty
+a_done_low: assert property (done_low);
+
+
+endmodule
+
+bind logic_unit_comb fv_logic_unit_comb #(
+    .WIDTH(WIDTH)
+) fv_logic_unit_comb_i (
+    .req_vec(req_vec),
+    .out(out),
+    .valid(valid),
+    .done(done)
+);

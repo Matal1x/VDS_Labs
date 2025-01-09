@@ -1,0 +1,58 @@
+// -------------------------------------------------
+// Copyright(c) LUBIS EDA GmbH, All rights reserved
+// Contact: contact@lubis-eda.com
+// -------------------------------------------------
+
+`default_nettype none
+
+module fv_logic_unit_seq #(
+    parameter WIDTH = 16
+)(
+    input logic         rst,
+    input logic         clk,
+    // Inputs
+    input [(WIDTH-1):0] req_vec,
+    // Outputs
+    input logic         out,
+    // Valid signals
+    input logic         req_vec_valid,
+    // Ready signals
+    input logic         out_ready
+);
+
+    // Define for every property the clock
+    default clocking default_clk @(posedge clk); endclocking
+
+property verify_reset;
+	rst |=> out_ready && !out; 
+endproperty
+a_verify_reset: assert property (verify_reset);
+
+
+
+property verify_computation;
+	//$fell(req_vec_valid) && $fell(out_ready) && $past(req_vec) implies ( ##WIDTH out == (|$past(req_vec[WIDTH-2:0], WIDTH) && $past(req_vec[WIDTH-1], WIDTH)) && out_ready);
+
+	
+        logic [WIDTH-1:0] data_tmp;
+	( ( req_vec_valid && out_ready && req_vec), data_tmp = req_vec) |=> ##WIDTH out == (|data_tmp[WIDTH-2:0] && data_tmp[WIDTH-1]) && out_ready;
+	
+endproperty
+a_verify_computation: assert property ( disable iff (rst)  verify_computation);
+
+property done_low;
+	  req_vec_valid && out_ready implies ##1  !out_ready [*WIDTH] ##1 out_ready;
+endproperty
+a_done_low: assert property ( disable iff (rst) done_low);
+endmodule
+
+bind logic_unit_seq fv_logic_unit_seq #(
+    .WIDTH(WIDTH)
+) fv_logic_unit_seq_i (
+    .rst(rst),
+    .clk(clk),
+    .req_vec(req_vec),
+    .out(out),
+    .req_vec_valid(valid),
+    .out_ready(done)
+);
