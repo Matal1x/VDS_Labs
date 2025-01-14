@@ -85,19 +85,18 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
     */
 
     sequence in_idle_counter_is_0;
-        // state_s == IDLE and cnt_s==0;
          (!(state_s == IDLE)) or cnt_s==0;
     endsequence
     sequence in_idle_counter_not_enabled;
-        // state_s == IDLE and !cnt_en;
         (!(state_s == IDLE)) or !cnt_en;
     endsequence
+
+	
+
     
     // TASK6
     property in_idle_counter_not_enabled__step;
         t ##0 in_idle_counter_not_enabled 
-        // and 
-        // t ##0 rxd
             implies
         t ##1 in_idle_counter_not_enabled;
     endproperty
@@ -112,12 +111,15 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
 
     
     // TASK7
-    parameter n = 2;
-    
+    parameter n = 1; // with the optional part
+    // parameter n = 2; // the actual task
+
     property in_idle_counter_is_0__step;
         t ##0 in_idle_counter_is_0  [*n]
-        // and 
-        // t ##0 rxd [*n]
+        // with The optional part
+	and t ##0 in_idle_counter_not_enabled
+	and t##0 in_read_counter_enabled
+        // -----------------------------
             implies
         t ##n in_idle_counter_is_0;
     endproperty
@@ -130,8 +132,27 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
     endproperty
     assert_in_idle_counter_is_0__base: assert property(@(posedge clk) in_idle_counter_is_0__base);
 
-    `end_tda
+    // OPTIONAL
+    sequence in_read_counter_enabled;
+		!(state_s == READ_DATA) or cnt_en;
+	endsequence
 
+    property in_read_counter_enabled__step;
+        t ##0 in_read_counter_enabled 
+            implies
+        t ##1 in_read_counter_enabled;
+    endproperty
+    assert_in_read_counter_enabled__step: assert property(@(posedge clk) disable iff (reset_n==0) in_read_counter_enabled__step);
+
+    property in_read_counter_enabled__base;
+        t ##0 reset_sequence
+            implies
+        t ##0 in_read_counter_enabled; // reset is asynchronus so we should check at the same t
+    endproperty
+    assert_in_read_counter_enabled__base: assert property(@(posedge clk) in_read_counter_enabled__base);
+
+
+    `end_tda
     
 endmodule
 
