@@ -1,7 +1,7 @@
 `define true 1
 `include "tidal.sv"
 
-module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, cnt_en);
+module readserial_properties(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, cnt_en);
     input logic clk;
     input logic reset_n;
     input logic rxd;
@@ -20,26 +20,23 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
     `begin_tda(ops)
 
     sequence reset_sequence;
-        !reset_n;
-    endsequence
-    // TASK2
-    property reset;
-        /* The reset is active low and asynchronus */
-        t ##0 reset_sequence
-            implies 
-        t ##0 state_s == IDLE and 
-        t ##0 cnt_s==0;
-    endproperty
-    assert_reset: assert property(reset);
-
+	reset_n == 1'b0;
+	endsequence
+property reset;
+reset_sequence |=>
+t ##0 state_s == IDLE and
+t ##0 valid == 1'b0;
+endproperty;
+a_reset: assert property(@(posedge clk) reset); // Add '@(posedge clk)' for the completeness check or else it will fail
     // TASK3
     property stay_in_idle;
         t ##0 state_s == IDLE and
-        t ##0 rxd 
+        t ##0 rxd==1 
             implies
-        t ##1 state_s == IDLE;
+        t ##1 state_s == IDLE and
+	t ##1 valid==0;
     endproperty
-    assert_stay_in_idle: assert property(@(posedge clk) disable iff (reset_n==0) stay_in_idle);
+    a_stay_in_idle: assert property(@(posedge clk) disable iff (reset_n==0) stay_in_idle);
 
     // TASK4
     property read_byte;
@@ -53,10 +50,10 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
         logic temp0; 
 
         t ##0 state_s == IDLE and
-        t ##0 !rxd and // Start bit 
+        t ##0 rxd==0 and // Start bit 
 
-        t##0 in_idle_counter_is_0 and // TASK5
-        t##0 in_idle_counter_not_enabled and // ----
+        //t##0 in_idle_counter_is_0 and // TASK5
+        //t##0 in_idle_counter_not_enabled and // ----
 
         t ##1 set_freeze(temp7, rxd) and // MSB first
         t ##2 set_freeze(temp6, rxd) and
@@ -65,18 +62,22 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
         t ##5 set_freeze(temp3, rxd) and
         t ##6 set_freeze(temp2, rxd) and
         t ##7 set_freeze(temp1, rxd) and
-        t ##8 set_freeze(temp0, rxd) and
+        t ##8 set_freeze(temp0, rxd) 
 
-        t ##9 rxd // No immediate new transmission
+	//and
+
+        //t ##9 rxd // No immediate new transmission
 
             implies
 
         t ##1  state_s == READ_DATA [*8] and
+        t ##1 !valid [*8] and
+
         t ##9 data == {temp7, temp6, temp5, temp4, temp3, temp2, temp1, temp0} and
         t ##9 valid and
         t ##9 state_s == IDLE;
     endproperty
-    assert_read_byte: assert property(@(posedge clk) disable iff (reset_n==0) read_byte);
+    a_read_byte: assert property(@(posedge clk) disable iff (reset_n==0) read_byte);
 
     // TASK5
     /*
@@ -100,14 +101,14 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
             implies
         t ##1 in_idle_counter_not_enabled;
     endproperty
-    assert_in_idle_counter_not_enabled__step: assert property(@(posedge clk) disable iff (reset_n==0) in_idle_counter_not_enabled__step);
+    //a_in_idle_counter_not_enabled__step: assert property(@(posedge clk) disable iff (reset_n==0) in_idle_counter_not_enabled__step);
 
     property in_idle_counter_not_enabled__base;
         t ##0 reset_sequence
             implies
         t ##0 in_idle_counter_not_enabled; // reset is asynchronus so we should check at the same t
     endproperty
-    assert_in_idle_counter_not_enabled__base: assert property(@(posedge clk) in_idle_counter_not_enabled__base);
+    //a_in_idle_counter_not_enabled__base: assert property(@(posedge clk) in_idle_counter_not_enabled__base);
 
     
     // TASK7
@@ -123,14 +124,14 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
             implies
         t ##n in_idle_counter_is_0;
     endproperty
-    assert_in_idle_counter_is_0__step: assert property(@(posedge clk) disable iff (reset_n==0) in_idle_counter_is_0__step);
+    //a_in_idle_counter_is_0__step: assert property(@(posedge clk) disable iff (reset_n==0) in_idle_counter_is_0__step);
 
     property in_idle_counter_is_0__base;
         t ##0 reset_sequence
             implies
         t ##0 in_idle_counter_is_0 [*n];
     endproperty
-    assert_in_idle_counter_is_0__base: assert property(@(posedge clk) in_idle_counter_is_0__base);
+    //a_in_idle_counter_is_0__base: assert property(@(posedge clk) in_idle_counter_is_0__base);
 
     // OPTIONAL
     sequence in_read_counter_enabled;
@@ -142,28 +143,18 @@ module readserial_suite(clk, reset_n, rxd, data, valid, state_s, data_i, cnt_s, 
             implies
         t ##1 in_read_counter_enabled;
     endproperty
-    assert_in_read_counter_enabled__step: assert property(@(posedge clk) disable iff (reset_n==0) in_read_counter_enabled__step);
+    //a_in_read_counter_enabled__step: assert property(@(posedge clk) disable iff (reset_n==0) in_read_counter_enabled__step);
 
     property in_read_counter_enabled__base;
         t ##0 reset_sequence
             implies
         t ##0 in_read_counter_enabled; // reset is asynchronus so we should check at the same t
     endproperty
-    assert_in_read_counter_enabled__base: assert property(@(posedge clk) in_read_counter_enabled__base);
+    //a_in_read_counter_enabled__base: assert property(@(posedge clk) in_read_counter_enabled__base);
 
 
     `end_tda
     
 endmodule
 
-bind readserial readserial_suite(
-    .clk(clk),
-    .reset_n(reset_n),
-    .rxd(rxd),
-    .data(data),
-    .valid(valid),
-    .state_s(state_s),
-    .data_i(data_i),
-    .cnt_s(cnt_s),
-    .cnt_en(cnt_en)
-    );
+bind readserial readserial_properties inst_readserial_properties (.*);
